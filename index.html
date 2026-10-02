@@ -40,6 +40,10 @@
       <div class="icon-img">🎬</div>
       <div class="icon-label">Video Player</div>
     </div>
+    <div class="icon" id="icon-control" data-app="control" ondblclick="openApp('control')">
+      <div class="icon-img">🎛️</div>
+      <div class="icon-label">Control Panel</div>
+    </div>
     <div class="icon" id="icon-recycle" data-app="recycle" ondblclick="openApp('recycle')">
       <div class="icon-img">🗑️</div>
       <div class="icon-label">Recycle Bin</div>
@@ -62,6 +66,7 @@
   <div id="taskbar">
     <button id="start-btn" onclick="toggleStartMenu()">🪟 Start</button>
     <div id="taskbar-buttons"></div>
+    <button id="mute-btn" onclick="toggleMute()" title="Toggle system sounds">🔊</button>
     <div id="clock"></div>
   </div>
 
@@ -77,11 +82,17 @@
       <div class="start-item" onclick="openApp('viewer')">🖼️ Image Viewer</div>
       <div class="start-item" onclick="openApp('player')">🎵 Media Player</div>
       <div class="start-item" onclick="openApp('video')">🎬 Video Player</div>
+      <div class="start-item" onclick="openApp('control')">🎛️ Control Panel</div>
       <hr>
       <div class="start-item" onclick="openApp('recycle')">🗑️ Recycle Bin</div>
       <hr>
       <div class="start-item" onclick="fakeShutdown()">⏻ Shut Down...</div>
     </div>
+  </div>
+
+  <!-- Idle screensaver -->
+  <div id="screensaver">
+    <div id="screensaver-logo">RetroOS 95</div>
   </div>
 
   <!-- Hidden input used to mount a real folder from disk -->

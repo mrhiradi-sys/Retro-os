@@ -4,7 +4,9 @@ const openWindows = {}; // id -> {el, taskbarBtn, minimized}
 
 /* ---------- Sound (tiny Win95-style beep) ---------- */
 let audioCtx;
+let systemMuted = false;
 function beep(freq = 600, dur = 0.05) {
+  if (systemMuted) return;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     const osc = audioCtx.createOscillator();
@@ -66,7 +68,14 @@ function arrangeIcons() {
     el.style.left = '12px';
     el.style.top = (12 + i * 88) + 'px';
   });
+  saveState();
 }
+function toggleMute() {
+  systemMuted = !systemMuted;
+  document.getElementById('mute-btn').textContent = systemMuted ? '🔇' : '🔊';
+  saveState();
+}
+
 function showAbout() {
   document.getElementById('context-menu').classList.remove('open');
   alert('RetroOS 95\n\nA fake operating system running entirely in your browser.\nBuilt with HTML, CSS and JavaScript.');
@@ -90,7 +99,7 @@ document.querySelectorAll('.icon').forEach(icon => {
     icon.style.left = Math.max(0, e.clientX - offX) + 'px';
     icon.style.top = Math.max(0, e.clientY - offY) + 'px';
   });
-  document.addEventListener('mouseup', () => dragging = false);
+  document.addEventListener('mouseup', () => { if (dragging && moved) saveState(); dragging = false; });
 });
 
 /* ---------- Window manager ---------- */
@@ -113,6 +122,7 @@ function createWindow(id, title, icon, bodyHTML, opts = {}) {
       <div class="title-bar-text">${icon} ${title}</div>
       <div class="title-bar-controls">
         <button onclick="minimizeWindow('${id}')">_</button>
+        <button onclick="toggleMaximize('${id}')">□</button>
         <button onclick="closeWindow('${id}')">✕</button>
       </div>
     </div>
@@ -121,8 +131,10 @@ function createWindow(id, title, icon, bodyHTML, opts = {}) {
   `;
 
   document.getElementById('windows-layer').appendChild(win);
-  makeDraggable(win, win.querySelector('.title-bar'));
+  const titleBar = win.querySelector('.title-bar');
+  makeDraggable(win, titleBar);
   makeResizable(win, win.querySelector('.resize-handle'), opts.onResize);
+  titleBar.querySelector('.title-bar-text').addEventListener('dblclick', () => toggleMaximize(id));
   win.addEventListener('mousedown', () => focusWindow(id));
 
   const taskBtn = document.createElement('button');
@@ -166,6 +178,40 @@ function restoreWindow(id) {
   w.minimized = false;
   focusWindow(id);
 }
+
+function toggleMaximize(id) {
+  const w = openWindows[id];
+  if (!w) return;
+  const win = w.el;
+  if (win.classList.contains('maximized')) {
+    win.classList.remove('maximized');
+    const prev = win._preMaximize;
+    if (prev) {
+      win.style.left = prev.left; win.style.top = prev.top;
+      win.style.width = prev.width; win.style.height = prev.height;
+    }
+  } else {
+    win._preMaximize = { left: win.style.left, top: win.style.top, width: win.style.width, height: win.style.height };
+    win.classList.add('maximized');
+  }
+  focusWindow(id);
+}
+
+// Alt+Tab cycles focus through open, non-minimized windows.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab' && e.altKey) {
+    e.preventDefault();
+    const ids = Object.keys(openWindows).filter(id => !openWindows[id].minimized);
+    if (!ids.length) return;
+    const activeId = ids.find(id => openWindows[id].btn.classList.contains('active')) || ids[0];
+    const next = ids[(ids.indexOf(activeId) + 1) % ids.length];
+    focusWindow(next);
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('start-menu').classList.remove('open');
+    document.getElementById('context-menu').classList.remove('open');
+  }
+});
 
 function closeWindow(id) {
   const w = openWindows[id];
@@ -221,6 +267,7 @@ function openApp(name) {
   else if (name === 'viewer') openImageViewer();
   else if (name === 'player') openMediaPlayer();
   else if (name === 'video') openVideoPlayer();
+  else if (name === 'control') openControlPanel();
   else if (name === 'recycle') openRecycle();
 }
 
@@ -925,3 +972,173 @@ function loadVideoIntoPlayer(id, file) {
   if (!stage) return;
   stage.innerHTML = `<video controls autoplay src="${URL.createObjectURL(file)}"></video>`;
 }
+
+/* ==========================================================
+   PERSISTENCE  (icon positions, wallpaper, mute — survives refresh)
+   ========================================================== */
+const STORAGE_KEY = 'retroOsState';
+
+function saveState() {
+  const icons = {};
+  document.querySelectorAll('.icon').forEach(el => {
+    icons[el.id] = { left: el.style.left, top: el.style.top };
+  });
+  const state = {
+    icons,
+    wallpaper: document.getElementById('desktop').style.background || '',
+    muted: systemMuted,
+    theme: document.body.dataset.theme || 'classic95'
+  };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable, ignore */ }
+}
+
+function loadState() {
+  let state;
+  try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { return; }
+  if (!state) return;
+
+  if (state.icons) {
+    Object.keys(state.icons).forEach(id => {
+      const el = document.getElementById(id);
+      if (el && state.icons[id].left) {
+        el.style.left = state.icons[id].left;
+        el.style.top = state.icons[id].top;
+      }
+    });
+  }
+  if (state.wallpaper) document.getElementById('desktop').style.background = state.wallpaper;
+  if (state.muted) {
+    systemMuted = true;
+    document.getElementById('mute-btn').textContent = '🔇';
+  }
+  if (state.theme) setTheme(state.theme);
+}
+
+/* ==========================================================
+   THEMES  (95/98, XP, Vista/7, 10, 11)
+   ========================================================== */
+const themes = [
+  { id: 'classic95', label: '95 / 98', start: '🪟 Start', preview: 'linear-gradient(90deg,#000080,#1084d0)' },
+  { id: 'xp',        label: 'XP',       start: '⊞ start', preview: 'linear-gradient(180deg,#2a8fff,#0054e3)' },
+  { id: 'seven',     label: 'Vista/7',  start: '⊞',        preview: 'linear-gradient(180deg,#bfe0ff,#5fa2e0)' },
+  { id: 'ten',       label: '10',       start: '⊞',        preview: '#0078d7' },
+  { id: 'eleven',    label: '11',       start: '⊞',        preview: '#f3f3f3' }
+];
+
+function setTheme(id) {
+  document.body.dataset.theme = (id === 'classic95') ? '' : id;
+  const t = themes.find(t => t.id === id) || themes[0];
+  document.getElementById('start-btn').textContent = t.start;
+  document.querySelectorAll('.theme-option').forEach(el => el.classList.toggle('selected', el.dataset.themeId === id));
+  saveState();
+}
+
+/* ==========================================================
+   CONTROL PANEL  (wallpaper + theme + system sound settings)
+   ========================================================== */
+const wallpapers = [
+  { name: 'Teal (classic)', value: '#008080' },
+  { name: 'Navy', value: '#000080' },
+  { name: 'Forest', value: '#204020' },
+  { name: 'Maroon', value: '#4a0000' },
+  { name: 'Purple Haze', value: 'linear-gradient(135deg, #2b0a3d, #6a0dad)' },
+  { name: 'Sunset', value: 'linear-gradient(135deg, #ff7e5f, #feb47b)' }
+];
+
+function openControlPanel() {
+  const current = document.getElementById('desktop').style.background || '#008080';
+  const activeTheme = document.body.dataset.theme || 'classic95';
+  const body = `
+    <div class="cp-body">
+      <div class="cp-section">
+        <h3>🎨 Windows Theme</h3>
+        ${themes.map(t => `
+          <div class="theme-option${t.id === activeTheme ? ' selected' : ''}" data-theme-id="${t.id}" onclick="setTheme('${t.id}')">
+            <div class="theme-swatch-preview" style="background:${t.preview}"></div>
+            ${t.label}
+          </div>
+        `).join('')}
+      </div>
+      <div class="cp-section">
+        <h3>🖼️ Desktop Wallpaper</h3>
+        <div id="wallpaper-swatches">
+          ${wallpapers.map(w => `<span class="wallpaper-swatch${w.value === current ? ' selected' : ''}" style="background:${w.value}" title="${w.name}" onclick="setWallpaper('${w.value}', this)"></span>`).join('')}
+        </div>
+      </div>
+      <div class="cp-section">
+        <h3>🔊 Sound</h3>
+        <label><input type="checkbox" id="cp-sound" ${systemMuted ? '' : 'checked'} onchange="setMuted(!this.checked)"> Enable system sounds</label>
+      </div>
+      <div class="cp-section">
+        <h3>ℹ️ System</h3>
+        <button onclick="showAbout()">About RetroOS</button>
+        <button onclick="if(confirm('Reset all saved settings and icon positions?')) resetState()">Reset to Defaults</button>
+      </div>
+    </div>
+  `;
+  createWindow('control', 'Control Panel', '🎛️', body, { width: 340, height: 320 });
+}
+
+function setWallpaper(value, el) {
+  document.getElementById('desktop').style.background = value;
+  document.querySelectorAll('.wallpaper-swatch').forEach(s => s.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  saveState();
+}
+
+function setMuted(val) {
+  systemMuted = val;
+  document.getElementById('mute-btn').textContent = systemMuted ? '🔇' : '🔊';
+  saveState();
+}
+
+function resetState() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+  location.reload();
+}
+
+/* ==========================================================
+   IDLE SCREENSAVER  (classic bouncing-logo, dismiss on input)
+   ========================================================== */
+let lastActivity = Date.now();
+let screensaverActive = false;
+let ssX = 40, ssY = 40, ssDX = 1.4, ssDY = 1.1;
+const IDLE_TIMEOUT = 90000; // 90 seconds
+
+['mousemove', 'mousedown', 'keydown', 'scroll'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    lastActivity = Date.now();
+    if (screensaverActive) dismissScreensaver();
+  });
+});
+
+setInterval(() => {
+  if (!screensaverActive && Date.now() - lastActivity > IDLE_TIMEOUT) {
+    document.getElementById('screensaver').classList.add('active');
+    screensaverActive = true;
+  }
+}, 2000);
+
+function dismissScreensaver() {
+  screensaverActive = false;
+  document.getElementById('screensaver').classList.remove('active');
+}
+
+function animateScreensaver() {
+  if (screensaverActive) {
+    const logo = document.getElementById('screensaver-logo');
+    const maxX = window.innerWidth - logo.offsetWidth;
+    const maxY = window.innerHeight - logo.offsetHeight;
+    ssX += ssDX; ssY += ssDY;
+    if (ssX <= 0 || ssX >= maxX) ssDX *= -1;
+    if (ssY <= 0 || ssY >= maxY) ssDY *= -1;
+    logo.style.left = ssX + 'px';
+    logo.style.top = ssY + 'px';
+  }
+  requestAnimationFrame(animateScreensaver);
+}
+animateScreensaver();
+
+// Run last: restores theme/wallpaper/icons/mute from a previous visit.
+// Must come after themes/wallpapers are defined above.
+loadState();
