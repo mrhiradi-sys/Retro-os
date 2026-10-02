@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div id="desktop" oncontextmenu="return showContextMenu(event)">
+
+    <!-- Desktop icons -->
+    <div class="icon" id="icon-explorer" data-app="explorer" ondblclick="openApp('explorer')">
+      <div class="icon-img">🖥️</div>
+      <div class="icon-label">My Computer</div>
+    </div>
+    <div class="icon" id="icon-browser" data-app="browser" ondblclick="openApp('browser')">
+      <div class="icon-img">🌐</div>
+      <div class="icon-label">Internet</div>
+    </div>
+    <div class="icon" id="icon-notepad" data-app="notepad" ondblclick="openApp('notepad')">
+      <div class="icon-img">📝</div>
+      <div class="icon-label">Notepad</div>
+    </div>
+    <div class="icon" id="icon-paint" data-app="paint" ondblclick="openApp('paint')">
+      <div class="icon-img">🎨</div>
+      <div class="icon-label">Paint</div>
+    </div>
+    <div class="icon" id="icon-calc" data-app="calc" ondblclick="openApp('calc')">
+      <div class="icon-img">🧮</div>
+      <div class="icon-label">Calculator</div>
+    </div>
+    <div class="icon" id="icon-viewer" data-app="viewer" ondblclick="openApp('viewer')">
+      <div class="icon-img">🖼️</div>
+      <div class="icon-label">Image Viewer</div>
+    </div>
+    <div class="icon" id="icon-player" data-app="player" ondblclick="openApp('player')">
+      <div class="icon-img">🎵</div>
+      <div class="icon-label">Media Player</div>
+    </div>
+    <div class="icon" id="icon-video" data-app="video" ondblclick="openApp('video')">
+      <div class="icon-img">🎬</div>
+      <div class="icon-label">Video Player</div>
+    </div>
+    <div class="icon" id="icon-recycle" data-app="recycle" ondblclick="openApp('recycle')">
+      <div class="icon-img">🗑️</div>
+      <div class="icon-label">Recycle Bin</div>
+    </div>
+
+    <!-- Windows get injected here by JS -->
+    <div id="windows-layer"></div>
+
+  </div>
+
+  <!-- Right-click context menu -->
+  <div id="context-menu" class="context-menu">
+    <div class="context-item" onclick="location.reload()">🔄 Refresh</div>
+    <div class="context-item" onclick="arrangeIcons()">📐 Arrange Icons</div>
+    <hr>
+    <div class="context-item" onclick="showAbout()">ℹ️ About RetroOS</div>
+  </div>
+
+  <!-- Taskbar -->
+  <div id="taskbar">
+    <button id="start-btn" onclick="toggleStartMenu()">🪟 Start</button>
+    <div id="taskbar-buttons"></div>
+    <div id="clock"></div>
+  </div>
+
+  <!-- Start menu -->
+  <div id="start-menu">
+    <div id="start-menu-side">RetroOS 95</div>
+    <div id="start-menu-items">
+      <div class="start-item" onclick="openApp('explorer')">🖥️ My Computer</div>
+      <div class="start-item" onclick="openApp('browser')">🌐 Internet Explorer</div>
+      <div class="start-item" onclick="openApp('notepad')">📝 Notepad</div>
+      <div class="start-item" onclick="openApp('paint')">🎨 Paint</div>
+      <div class="start-item" onclick="openApp('calc')">🧮 Calculator</div>
+      <div class="start-item" onclick="openApp('viewer')">🖼️ Image Viewer</div>
+      <div class="start-item" onclick="openApp('player')">🎵 Media Player</div>
+      <div class="start-item" onclick="openApp('video')">🎬 Video Player</div>
+      <hr>
+      <div class="start-item" onclick="openApp('recycle')">🗑️ Recycle Bin</div>
+      <hr>
+      <div class="start-item" onclick="fakeShutdown()">⏻ Shut Down...</div>
+    </div>
+  </div>
+
+  <!-- Hidden input used to mount a real folder from disk -->
+  <input type="file" id="real-folder-input" webkitdirectory multiple style="display:none">
+
+  <script src="script.js"></script>
+</body>
+</html>
