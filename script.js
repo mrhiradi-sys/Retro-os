@@ -457,7 +457,7 @@ function switchMode(mode) {
 }
 
 function navBrowser(url) {
-  url = (url || '').trim().toLowerCase().replace(/^https?:\/\//, '');
+  url = (url || '').trim().replace(/^https?:\/\//i, '');
   browserHistory.push(url);
   renderSite(url);
 }
@@ -524,7 +524,7 @@ function renderSite(url) {
     }
   } else {
     page.classList.remove('real');
-    const site = fakeSites[url];
+    const site = fakeSites[url.toLowerCase()];
     if (site) {
       page.innerHTML = site.html;
     } else {
