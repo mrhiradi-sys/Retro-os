@@ -130,7 +130,9 @@ function createWindow(id, title, icon, bodyHTML, opts = {}) {
     <div class="resize-handle"></div>
   `;
 
+  win.classList.add('win-opening');
   document.getElementById('windows-layer').appendChild(win);
+  requestAnimationFrame(() => requestAnimationFrame(() => win.classList.remove('win-opening')));
   const titleBar = win.querySelector('.title-bar');
   makeDraggable(win, titleBar);
   makeResizable(win, win.querySelector('.resize-handle'), opts.onResize);
@@ -183,6 +185,8 @@ function toggleMaximize(id) {
   const w = openWindows[id];
   if (!w) return;
   const win = w.el;
+  win.classList.add('win-anim');
+  setTimeout(() => win.classList.remove('win-anim'), 220);
   if (win.classList.contains('maximized')) {
     win.classList.remove('maximized');
     const prev = win._preMaximize;
@@ -465,13 +469,17 @@ const fakeSites = {
            <p><a onclick="navBrowser('home')">Back to Home</a></p>`
   }
 };
-let browserHistory = ['home'];
-let browserMode = 'fake'; // 'fake' | 'real'
+// Each tab: { id, mode:'fake'|'real', history:[urls], index }
+let browserTabs = [];
+let activeTabId = null;
+let tabCounter = 0;
 
 function openBrowser() {
   const body = `
+    <div class="browser-tabstrip" id="browser-tabstrip"></div>
     <div class="browser-toolbar">
-      <button onclick="navBrowser(browserHistory[browserHistory.length-2]||'home')">◀</button>
+      <button onclick="tabBack()">◀</button>
+      <button onclick="tabForward()">▶</button>
       <input type="text" id="browser-addr" value="home" onkeydown="if(event.key==='Enter') navBrowser(this.value)">
       <button onclick="navBrowser(document.getElementById('browser-addr').value)">Go</button>
       <button id="mode-btn" onclick="toggleMode()">🎭 Fake Web</button>
@@ -486,27 +494,94 @@ function openBrowser() {
     <div class="browser-mode-note" id="mode-note">Fake Web mode: pretend sites, always work.</div>
     <div class="browser-page" id="browser-page"></div>
   `;
-  createWindow('browser', 'Internet Explorer', '🌐', body, { width: 520, height: 380, onOpen: () => renderSite('home') });
+  createWindow('browser', 'Internet Explorer', '🌐', body, { width: 560, height: 430, onOpen: () => {
+    browserTabs = [];
+    newTab('home', 'fake');
+  }});
+}
+
+function newTab(url, mode) {
+  tabCounter++;
+  const tab = { id: 'tab' + tabCounter, mode: mode || 'fake', history: [url || 'home'], index: 0 };
+  browserTabs.push(tab);
+  activeTabId = tab.id;
+  renderTabStrip();
+  renderActiveTab();
+}
+
+function closeTab(tabId, evt) {
+  if (evt) evt.stopPropagation();
+  const idx = browserTabs.findIndex(t => t.id === tabId);
+  if (idx === -1) return;
+  browserTabs.splice(idx, 1);
+  if (!browserTabs.length) { newTab('home', 'fake'); return; }
+  if (activeTabId === tabId) activeTabId = browserTabs[Math.max(0, idx - 1)].id;
+  renderTabStrip();
+  renderActiveTab();
+}
+
+function switchTab(tabId) {
+  activeTabId = tabId;
+  renderTabStrip();
+  renderActiveTab();
+}
+
+function activeTab() { return browserTabs.find(t => t.id === activeTabId); }
+
+function tabLabel(tab) {
+  const url = tab.history[tab.index];
+  if (tab.mode === 'fake' && fakeSites[url.toLowerCase()]) return fakeSites[url.toLowerCase()].title;
+  return url.length > 18 ? url.slice(0, 18) + '…' : (url || 'New Tab');
+}
+
+function renderTabStrip() {
+  const strip = document.getElementById('browser-tabstrip');
+  if (!strip) return;
+  strip.innerHTML = browserTabs.map(t => `
+    <div class="browser-tab${t.id === activeTabId ? ' active' : ''}" onclick="switchTab('${t.id}')">
+      <span class="browser-tab-title">${t.mode === 'real' ? '🌍' : '🎭'} ${tabLabel(t)}</span>
+      <span class="browser-tab-close" onclick="closeTab('${t.id}', event)">✕</span>
+    </div>
+  `).join('') + `<div class="browser-tab-new" onclick="newTab('home','fake')">+</div>`;
 }
 
 function toggleMode() {
-  switchMode(browserMode === 'fake' ? 'real' : 'fake');
+  const t = activeTab();
+  if (!t) return;
+  switchMode(t.mode === 'fake' ? 'real' : 'fake');
 }
 function switchMode(mode) {
-  browserMode = mode;
-  const btn = document.getElementById('mode-btn');
-  const note = document.getElementById('mode-note');
-  if (btn) btn.textContent = mode === 'fake' ? '🎭 Fake Web' : '🌍 Real Web';
-  if (note) note.textContent = mode === 'fake'
-    ? 'Fake Web mode: pretend sites, always work.'
-    : 'Real Web mode: YouTube videos, Spotify tracks, Google Maps places, and single X posts play via their official embeds. Most other big sites (Google search, Facebook, full X feeds...) block embedding on purpose — try wikipedia.org or a blog instead.';
-  navBrowser(document.getElementById('browser-addr').value || 'home');
+  const t = activeTab();
+  if (!t) return;
+  t.mode = mode;
+  navBrowser(t.history[t.index] || 'home');
 }
 
 function navBrowser(url) {
+  const t = activeTab();
+  if (!t) return;
   url = (url || '').trim().replace(/^https?:\/\//i, '');
-  browserHistory.push(url);
-  renderSite(url);
+  t.history = t.history.slice(0, t.index + 1);
+  t.history.push(url);
+  t.index = t.history.length - 1;
+  renderTabStrip();
+  renderActiveTab();
+}
+
+function tabBack() {
+  const t = activeTab();
+  if (!t || t.index <= 0) return;
+  t.index--;
+  renderTabStrip();
+  renderActiveTab();
+}
+
+function tabForward() {
+  const t = activeTab();
+  if (!t || t.index >= t.history.length - 1) return;
+  t.index++;
+  renderTabStrip();
+  renderActiveTab();
 }
 
 // A handful of big platforms expose an OFFICIAL embed endpoint for
@@ -546,13 +621,22 @@ function loadTwitterWidgetsScript(cb) {
   document.body.appendChild(s);
 }
 
-function renderSite(url) {
+function renderActiveTab() {
+  const t = activeTab();
   const page = document.getElementById('browser-page');
   const addr = document.getElementById('browser-addr');
-  if (!page) return;
-  addr.value = url;
+  const modeBtn = document.getElementById('mode-btn');
+  const note = document.getElementById('mode-note');
+  if (!t || !page) return;
 
-  if (browserMode === 'real') {
+  const url = t.history[t.index];
+  addr.value = url;
+  if (modeBtn) modeBtn.textContent = t.mode === 'fake' ? '🎭 Fake Web' : '🌍 Real Web';
+  if (note) note.textContent = t.mode === 'fake'
+    ? 'Fake Web mode: pretend sites, always work.'
+    : 'Real Web mode: YouTube videos, Spotify tracks, Google Maps places, and single X posts play via their official embeds. Most other big sites (Google search, Facebook, full X feeds...) block embedding on purpose — try wikipedia.org or a blog instead.';
+
+  if (t.mode === 'real') {
     page.classList.add('real');
     if (!url.includes('.')) {
       page.classList.remove('real');
@@ -743,7 +827,7 @@ function calcClear(id) {
    IMAGE VIEWER
    ========================================================== */
 let viewerCount = 0;
-const imageViewers = {}; // id -> { files, index }
+const imageViewers = {}; // id -> { files, index, zoom, rotation, fit, flipH }
 
 // Call with no args to open an empty viewer with its own "Open..." button,
 // or with (files[], startIndex) to open straight into a real set of images
@@ -759,11 +843,23 @@ function openImageViewer(files, startIndex) {
         <span class="viewer-filename" id="vfname-${id}">No image loaded</span>
         <button onclick="viewerNav('${id}',1)">Next ▶</button>
       </div>
-      <div class="viewer-canvas" id="vcanvas-${id}"><div class="viewer-empty">No image loaded</div></div>
+      <div class="viewer-toolbar viewer-tools">
+        <button onclick="viewerZoom('${id}',-0.25)" title="Zoom out">➖</button>
+        <span class="viewer-zoomlabel" id="vzoom-${id}">100%</span>
+        <button onclick="viewerZoom('${id}',0.25)" title="Zoom in">➕</button>
+        <button onclick="viewerFit('${id}')" id="vfit-${id}" title="Toggle fit / actual size">⛶ Fit</button>
+        <button onclick="viewerRotate('${id}',-90)" title="Rotate left">⟲</button>
+        <button onclick="viewerRotate('${id}',90)" title="Rotate right">⟳</button>
+        <button onclick="viewerFlip('${id}')" title="Flip horizontally">⇋</button>
+        <button onclick="viewerReset('${id}')" title="Reset view">Reset</button>
+        <button onclick="viewerSlideshow('${id}')" id="vslide-${id}" title="Slideshow">▶ Slides</button>
+      </div>
+      <div class="viewer-canvas" id="vcanvas-${id}" onwheel="viewerWheel(event,'${id}')"><div class="viewer-empty">No image loaded</div></div>
+      <div class="viewer-status" id="vstatus-${id}"></div>
     </div>
   `;
-  createWindow(id, 'Image Viewer', '🖼️', body, { width: 460, height: 360, onOpen: () => {
-    imageViewers[id] = { files: files || [], index: startIndex || 0 };
+  createWindow(id, 'Image Viewer', '🖼️', body, { width: 520, height: 420, onOpen: () => {
+    imageViewers[id] = { files: files || [], index: startIndex || 0, zoom: 1, rotation: 0, fit: true, flipH: false, timer: null };
     if (files && files.length) renderViewerImage(id);
   }});
 }
@@ -775,16 +871,22 @@ function viewerOpenReal(id) {
   input.multiple = true;
   input.onchange = () => {
     if (!input.files.length) return;
-    imageViewers[id] = { files: Array.from(input.files), index: 0 };
+    const v = imageViewers[id];
+    v.files = Array.from(input.files);
+    v.index = 0;
+    viewerResetState(v);
     renderViewerImage(id);
   };
   input.click();
 }
 
+function viewerResetState(v) { v.zoom = 1; v.rotation = 0; v.flipH = false; v.fit = true; }
+
 function viewerNav(id, dir) {
   const v = imageViewers[id];
   if (!v || !v.files.length) return;
   v.index = (v.index + dir + v.files.length) % v.files.length;
+  viewerResetState(v);
   renderViewerImage(id);
 }
 
@@ -797,9 +899,78 @@ function renderViewerImage(id) {
   fname.textContent = `${file.name} (${v.index + 1}/${v.files.length})`;
   const reader = new FileReader();
   reader.onload = (e) => {
-    canvas.innerHTML = `<img src="${e.target.result}">`;
+    canvas.innerHTML = `<img id="vimg-${id}" src="${e.target.result}">`;
+    const img = document.getElementById('vimg-' + id);
+    img.onload = () => {
+      const status = document.getElementById('vstatus-' + id);
+      if (status) status.textContent = `${img.naturalWidth} × ${img.naturalHeight} px  •  ${(file.size / 1024).toFixed(1)} KB`;
+    };
+    applyViewerTransform(id);
   };
   reader.readAsDataURL(file);
+}
+
+function applyViewerTransform(id) {
+  const v = imageViewers[id];
+  const img = document.getElementById('vimg-' + id);
+  const label = document.getElementById('vzoom-' + id);
+  const fitBtn = document.getElementById('vfit-' + id);
+  if (!v || !img) return;
+  img.style.maxWidth = v.fit ? '100%' : 'none';
+  img.style.maxHeight = v.fit ? '100%' : 'none';
+  img.style.transform = `scale(${v.flipH ? -v.zoom : v.zoom}, ${v.zoom}) rotate(${v.flipH ? -v.rotation : v.rotation}deg)`;
+  if (label) label.textContent = Math.round(v.zoom * 100) + '%';
+  if (fitBtn) fitBtn.textContent = v.fit ? '⛶ Fit' : '1:1 Actual';
+}
+
+function viewerZoom(id, delta) {
+  const v = imageViewers[id];
+  if (!v) return;
+  v.zoom = Math.min(8, Math.max(0.1, +(v.zoom + delta).toFixed(2)));
+  applyViewerTransform(id);
+}
+function viewerWheel(e, id) {
+  e.preventDefault();
+  viewerZoom(id, e.deltaY < 0 ? 0.15 : -0.15);
+}
+function viewerFit(id) {
+  const v = imageViewers[id];
+  if (!v) return;
+  v.fit = !v.fit;
+  applyViewerTransform(id);
+}
+function viewerRotate(id, deg) {
+  const v = imageViewers[id];
+  if (!v) return;
+  v.rotation = (v.rotation + deg + 360) % 360;
+  applyViewerTransform(id);
+}
+function viewerFlip(id) {
+  const v = imageViewers[id];
+  if (!v) return;
+  v.flipH = !v.flipH;
+  applyViewerTransform(id);
+}
+function viewerReset(id) {
+  const v = imageViewers[id];
+  if (!v) return;
+  viewerResetState(v);
+  applyViewerTransform(id);
+}
+function viewerSlideshow(id) {
+  const v = imageViewers[id];
+  const btn = document.getElementById('vslide-' + id);
+  if (!v || v.files.length < 2) return;
+  if (v.timer) {
+    clearInterval(v.timer); v.timer = null;
+    if (btn) btn.textContent = '▶ Slides';
+  } else {
+    v.timer = setInterval(() => {
+      if (!openWindows[id]) { clearInterval(v.timer); return; }
+      viewerNav(id, 1);
+    }, 3000);
+    if (btn) btn.textContent = '⏸ Stop';
+  }
 }
 
 /* ==========================================================
@@ -1006,12 +1177,13 @@ function loadState() {
       }
     });
   }
-  if (state.wallpaper) document.getElementById('desktop').style.background = state.wallpaper;
   if (state.muted) {
     systemMuted = true;
     document.getElementById('mute-btn').textContent = '🔇';
   }
-  if (state.theme) setTheme(state.theme);
+  if (state.theme) setTheme(state.theme, false);
+  if (state.wallpaper) document.getElementById('desktop').style.background = state.wallpaper;
+  else if (state.theme) applyThemeWallpaper(state.theme);
 }
 
 /* ==========================================================
@@ -1025,11 +1197,27 @@ const themes = [
   { id: 'eleven',    label: '11',       start: '⊞',        preview: '#f3f3f3' }
 ];
 
-function setTheme(id) {
+// CSS-only homages to each era's default desktop look (original gradients
+// and shapes, not reproductions of the actual wallpaper images).
+const themeWallpapers = {
+  classic95: '#008080',
+  xp: 'radial-gradient(ellipse 140% 55% at 30% 105%, #7ed23f 0%, #4a9b24 55%, transparent 56%), radial-gradient(ellipse 120% 50% at 90% 108%, #5fb82e 0%, #3b8a1c 55%, transparent 56%), linear-gradient(to bottom, #2468c8 0%, #5aa6ee 45%, #cfeaff 85%)',
+  seven: 'radial-gradient(ellipse 60% 40% at 25% 35%, rgba(90,190,255,0.75), transparent 70%), radial-gradient(ellipse 50% 60% at 78% 62%, rgba(30,110,220,0.8), transparent 70%), radial-gradient(ellipse 80% 30% at 50% 95%, rgba(150,220,255,0.5), transparent 70%), linear-gradient(135deg, #05224d, #0b4a9c 55%, #0a2d63)',
+  ten: 'radial-gradient(ellipse 45% 70% at 62% 50%, rgba(80,190,255,0.85), transparent 65%), radial-gradient(ellipse 30% 50% at 70% 55%, rgba(200,240,255,0.55), transparent 70%), linear-gradient(120deg, #00162e 0%, #004a8f 55%, #0078d7 100%)',
+  eleven: 'radial-gradient(circle at 35% 40%, rgba(255,255,255,0.55), transparent 35%), radial-gradient(ellipse 55% 45% at 65% 60%, #4aa3ff, transparent 70%), radial-gradient(ellipse 50% 50% at 25% 70%, #7a5cff, transparent 70%), linear-gradient(135deg, #d6e8ff, #8fbcff 50%, #b9a6ff)'
+};
+function applyThemeWallpaper(id) {
+  document.getElementById('desktop').style.background = themeWallpapers[id] || themeWallpapers.classic95;
+}
+
+// applyWallpaper=false is used when restoring a saved session so a
+// user's custom wallpaper choice isn't overwritten by the theme default.
+function setTheme(id, applyWallpaper = true) {
   document.body.dataset.theme = (id === 'classic95') ? '' : id;
   const t = themes.find(t => t.id === id) || themes[0];
   document.getElementById('start-btn').textContent = t.start;
   document.querySelectorAll('.theme-option').forEach(el => el.classList.toggle('selected', el.dataset.themeId === id));
+  if (applyWallpaper) applyThemeWallpaper(id);
   saveState();
 }
 

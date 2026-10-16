@@ -426,6 +426,28 @@ button:active {
 }
 .explorer-file .f-icon { font-size: 26px; }
 
+/* --- Browser app: tab strip --- */
+.browser-tabstrip { display: flex; gap: 2px; margin-bottom: 4px; overflow-x: auto; flex-shrink: 0; }
+.browser-tab {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,0.08);
+  border: 1px solid #808080; border-bottom: none;
+  border-radius: var(--btn-radius) var(--btn-radius) 0 0;
+  padding: 3px 8px; font-size: 11px; max-width: 150px;
+  cursor: pointer; white-space: nowrap;
+}
+.browser-tab.active { background: #fff; color: #000; font-weight: bold; }
+.browser-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser-tab-close { opacity: 0.6; }
+.browser-tab-close:hover { opacity: 1; color: #d00; }
+.browser-tab-new {
+  padding: 3px 9px; font-size: 12px; font-weight: bold; cursor: pointer;
+  border: 1px solid #808080; border-bottom: none;
+  border-radius: var(--btn-radius) var(--btn-radius) 0 0;
+  background: rgba(0,0,0,0.05);
+}
+.browser-tab-new:hover { background: rgba(255,255,255,0.6); }
+
 /* --- Browser app --- */
 .browser-toolbar { display: flex; gap: 4px; margin-bottom: 4px; }
 .browser-toolbar input[type=text] { flex: 1; }
@@ -436,7 +458,7 @@ button:active {
   background: #fff;
   border: 2px solid;
   border-color: #0a0a0a #fff #fff #0a0a0a;
-  height: calc(100% - 78px);
+  height: calc(100% - 106px);
   overflow: auto;
   padding: 12px;
   font-size: 13px;
@@ -579,6 +601,10 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
 }
 .viewer-canvas img { max-width: 100%; max-height: 100%; }
 .viewer-empty { color: #fff; font-size: 12px; }
+.viewer-tools { flex-wrap: wrap; }
+.viewer-zoomlabel { font-size: 11px; min-width: 38px; text-align: center; }
+.viewer-status { font-size: 10px; opacity: 0.85; padding: 1px 2px; min-height: 13px; }
+.viewer-canvas img { transition: transform 0.12s ease; transform-origin: center; }
 
 /* --- Media Player app (Winamp-ish skin, intentionally theme-independent) --- */
 .player-body {
@@ -620,3 +646,78 @@ canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
 .video-stage { flex: 1; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .video-stage video { max-width: 100%; max-height: 100%; }
 .video-empty { color: #aaa; font-size: 12px; }
+
+/* ============================================================
+   POLISH: animations
+   ============================================================ */
+.window { transition: opacity 0.14s ease, transform 0.14s ease; }
+.window.win-opening { opacity: 0; transform: scale(0.96); }
+.window.win-anim { transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease, opacity .14s ease, transform .14s ease; }
+.taskbar-btn, #start-btn, button { transition: background-color .1s ease, filter .1s ease; }
+button:hover { filter: brightness(1.06); }
+.icon:hover .icon-img { transform: translateY(-1px); }
+.icon-img { transition: transform .1s ease; }
+
+/* ============================================================
+   POLISH: per-theme touches
+   ============================================================ */
+/* XP: Luna title bar + Start menu side panel + bold white labels */
+body[data-theme="xp"] .title-bar { border-radius: 7px 7px 0 0; padding: 4px 6px; text-shadow: 1px 1px 0 rgba(0,0,0,0.4); }
+body[data-theme="xp"] .title-bar-controls button {
+  background: linear-gradient(180deg, #5b9bff, #1f5fd6); color: #fff;
+  border: 1px solid #fff; border-radius: 3px; width: 20px; height: 20px;
+}
+body[data-theme="xp"] .title-bar-controls button:last-child { background: linear-gradient(180deg, #f0866a, #c9391b); }
+body[data-theme="xp"] #start-menu-side { background: linear-gradient(#2a8fff, #0054e3); }
+body[data-theme="xp"] #start-btn { font-style: italic; font-size: 14px; padding: 3px 16px 3px 10px; box-shadow: inset 0 2px 3px rgba(255,255,255,0.5); }
+body[data-theme="xp"] .taskbar-btn { background: linear-gradient(180deg, #4d9bf5, #2a6fd9); color: #fff; border-color: #1b4fa8; }
+body[data-theme="xp"] .taskbar-btn.active { background: linear-gradient(180deg, #1c4fb8, #2a6fd9); }
+body[data-theme="xp"] #clock { background: #0f8fe8; color: #fff; border-color: #0a4fa8; }
+body[data-theme="xp"] #mute-btn { background: transparent; border-color: transparent; }
+
+/* Vista/7: glass gloss + round orb */
+body[data-theme="seven"] .title-bar { border-radius: 7px 7px 0 0; text-shadow: 0 0 8px #fff, 0 0 3px #fff; padding: 5px 6px; }
+body[data-theme="seven"] .title-bar-controls button { border-radius: 0 0 4px 4px; height: 17px; width: 26px; background: linear-gradient(180deg, #e9f3ff, #a9c9ee); }
+body[data-theme="seven"] .title-bar-controls button:last-child { width: 40px; background: linear-gradient(180deg, #f3a79a, #c63a24); color: #fff; }
+body[data-theme="seven"] #start-btn { width: 40px; height: 40px; margin-top: -10px; padding: 0; font-size: 18px; box-shadow: 0 0 8px rgba(120,200,255,0.9), inset 0 2px 4px rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.6); }
+body[data-theme="seven"] #taskbar { height: 36px; }
+body[data-theme="seven"] #desktop { height: calc(100% - 36px); }
+body[data-theme="seven"] #start-menu { bottom: 36px; }
+body[data-theme="seven"] .taskbar-btn { background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.35); }
+body[data-theme="seven"] .taskbar-btn.active { background: rgba(255,255,255,0.35); }
+body[data-theme="seven"] #clock { background: transparent; color: #fff; border: none; }
+body[data-theme="seven"] #mute-btn { background: transparent; border-color: transparent; }
+body[data-theme="seven"] #start-menu-side { background: linear-gradient(#5fb0ff, #0a4f9c); }
+
+/* Windows 10: flat, dark taskbar, square controls */
+body[data-theme="ten"] .title-bar { padding: 6px 8px; }
+body[data-theme="ten"] .title-bar-controls button { background: transparent; color: #fff; border: none; width: 36px; height: 24px; font-weight: normal; }
+body[data-theme="ten"] .title-bar-controls button:hover { background: rgba(255,255,255,0.2); }
+body[data-theme="ten"] .title-bar-controls button:last-child:hover { background: #e81123; }
+body[data-theme="ten"] #start-btn { width: 46px; font-size: 16px; }
+body[data-theme="ten"] #start-btn:hover, body[data-theme="ten"] .taskbar-btn:hover { background: #3a3a3a; }
+body[data-theme="ten"] .taskbar-btn { background: transparent; color: #fff; border: none; border-bottom: 2px solid transparent; }
+body[data-theme="ten"] .taskbar-btn.active { background: #3a3a3a; border-bottom: 2px solid #4cc2ff; }
+body[data-theme="ten"] #clock { background: transparent; color: #fff; border: none; }
+body[data-theme="ten"] #mute-btn { background: transparent; border: none; }
+body[data-theme="ten"] #start-menu { color: #fff; }
+body[data-theme="ten"] #start-menu-side { display: none; }
+body[data-theme="ten"] .context-menu { color: #fff; }
+
+/* Windows 11: rounded Mica, centered taskbar */
+body[data-theme="eleven"] .title-bar { border-radius: 9px 9px 0 0; padding: 7px 10px; }
+body[data-theme="eleven"] .title-bar-controls button { background: transparent; color: #1a1a1a; border: none; width: 34px; height: 24px; font-weight: normal; border-radius: 6px; }
+body[data-theme="eleven"] .title-bar-controls button:hover { background: rgba(0,0,0,0.08); }
+body[data-theme="eleven"] .title-bar-controls button:last-child:hover { background: #c42b1c; color: #fff; }
+body[data-theme="eleven"] #taskbar { height: 38px; justify-content: center; }
+body[data-theme="eleven"] #desktop { height: calc(100% - 38px); }
+body[data-theme="eleven"] #start-menu { bottom: 44px; left: 50%; transform: translateX(-50%); border-radius: 12px; width: 260px; }
+body[data-theme="eleven"] #start-menu-side { display: none; }
+body[data-theme="eleven"] #taskbar-buttons { flex: 0 1 auto; }
+body[data-theme="eleven"] #start-btn { width: 38px; font-size: 15px; }
+body[data-theme="eleven"] .taskbar-btn { background: rgba(255,255,255,0.08); color: #fff; border: none; border-radius: 6px; }
+body[data-theme="eleven"] .taskbar-btn.active { background: rgba(255,255,255,0.22); box-shadow: inset 0 -2px 0 #60cdff; }
+body[data-theme="eleven"] #clock { background: transparent; color: #fff; border: none; }
+body[data-theme="eleven"] #mute-btn { background: transparent; border: none; }
+body[data-theme="eleven"] .context-menu { border-radius: 8px; }
+body[data-theme="eleven"] .start-item { border-radius: 6px; margin: 0 4px; }
