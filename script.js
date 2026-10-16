@@ -60,16 +60,24 @@ function showContextMenu(e) {
   menu.classList.add('open');
   return false;
 }
+// Lays out every desktop icon (whatever icons exist) in columns that fit
+// the current desktop height, so new apps never get missed or overlap.
+function autoArrangeIcons() {
+  const icons = Array.from(document.querySelectorAll('.icon'));
+  const rowH = 88, colW = 84, pad = 12;
+  const desktopH = document.getElementById('desktop').clientHeight;
+  const perCol = Math.max(1, Math.floor((desktopH - pad) / rowH));
+  icons.forEach((el, i) => {
+    el.style.left = (pad + Math.floor(i / perCol) * colW) + 'px';
+    el.style.top = (pad + (i % perCol) * rowH) + 'px';
+  });
+}
 function arrangeIcons() {
   document.getElementById('context-menu').classList.remove('open');
-  const ids = ['icon-explorer','icon-browser','icon-notepad','icon-paint','icon-calc','icon-recycle'];
-  ids.forEach((id, i) => {
-    const el = document.getElementById(id);
-    el.style.left = '12px';
-    el.style.top = (12 + i * 88) + 'px';
-  });
+  autoArrangeIcons();
   saveState();
 }
+
 function toggleMute() {
   systemMuted = !systemMuted;
   document.getElementById('mute-btn').textContent = systemMuted ? '🔇' : '🔊';
@@ -1148,6 +1156,7 @@ function loadVideoIntoPlayer(id, file) {
    PERSISTENCE  (icon positions, wallpaper, mute — survives refresh)
    ========================================================== */
 const STORAGE_KEY = 'retroOsState';
+const STATE_VERSION = 2; // bump to discard incompatible saved icon positions
 
 function saveState() {
   const icons = {};
@@ -1155,6 +1164,7 @@ function saveState() {
     icons[el.id] = { left: el.style.left, top: el.style.top };
   });
   const state = {
+    v: STATE_VERSION,
     icons,
     wallpaper: document.getElementById('desktop').style.background || '',
     muted: systemMuted,
@@ -1164,11 +1174,12 @@ function saveState() {
 }
 
 function loadState() {
-  let state;
-  try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { return; }
-  if (!state) return;
+  let state = null;
+  try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { state = null; }
 
-  if (state.icons) {
+  // Only trust saved icon positions from the current state version;
+  // otherwise lay icons out fresh so none overlap.
+  if (state && state.v === STATE_VERSION && state.icons) {
     Object.keys(state.icons).forEach(id => {
       const el = document.getElementById(id);
       if (el && state.icons[id].left) {
@@ -1176,7 +1187,11 @@ function loadState() {
         el.style.top = state.icons[id].top;
       }
     });
+  } else {
+    autoArrangeIcons();
   }
+  if (!state) return;
+
   if (state.muted) {
     systemMuted = true;
     document.getElementById('mute-btn').textContent = '🔇';
